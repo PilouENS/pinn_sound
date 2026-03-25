@@ -161,7 +161,7 @@ if __name__ == "__main__":
     model = FCN(hidden_dim=128, n_layers=5).to(device)
 
     # Données
-    x_d, y_d, t_d, p_d = load_dataset("simu/pinn_ground_truth.npy", n_points=8000)
+    x_d, y_d, t_d, p_d = load_dataset("simu/pinn_ground_truth_fixed_obstacle.npy", n_points=8000)
     x_d, y_d, t_d, p_d = x_d.to(device), y_d.to(device), t_d.to(device), p_d.to(device)
 
     # Points de collocation et bords (rééchantillonnés à chaque époque possible)
