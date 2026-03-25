@@ -44,6 +44,40 @@ Notes:
 - Collocation/boundary points sampled on the fly; prints losses every 500 epochs.
 - Training schedule: Adam 5000 epochs (lr=1e-3) then L-BFGS (500 steps). Model saved as `pinn_wave_model.pt`.
 
+## Evaluate / Visualize a Trained Model
+- Script: `testpinn.py`
+- Single case with GT comparison:
+  ```bash
+  python testpinn.py \
+    --weights pinn_wave_model.pt \
+    --dataset simu/pinn_ground_truth_fixed_obstacle.npy \
+    --sample-id 0 \
+    --t 0.005 \
+    --nx 81 \
+    --out pred_vs_gt.png
+  ```
+  Produces a 3-panel PNG: PINN prediction, ground truth, absolute error + contours; prints MSE.
+- Batch evaluate first N samples (e.g., 10) and save per-sample PNGs + summary stats:
+  ```bash
+  python testpinn.py \
+    --weights pinn_wave_model.pt \
+    --dataset simu/pinn_ground_truth_fixed_obstacle.npy \
+    --t 0.005 \
+    --nx 81 \
+    --eval-many 10 \
+    --out-dir eval_outputs
+  ```
+- MSE vs time curve for one sample:
+  ```bash
+  python testpinn.py \
+    --weights pinn_wave_model.pt \
+    --dataset simu/pinn_ground_truth_fixed_obstacle.npy \
+    --sample-id 0 \
+    --curve \
+    --curve-out mse_vs_time_sample0.png
+  ```
+Notes: `--device cuda` or `cpu` to force device; default uses CUDA if available.
+
 ## Model & Physics
 - Network: fully connected, input `(x,y,t)`, 5 hidden layers of 128 with `tanh`, Xavier init, scalar pressure output.
 - Physics term: wave residual `∂²p/∂t² - c²(∂²p/∂x² + ∂²p/∂y²)` via autograd.
