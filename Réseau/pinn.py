@@ -3,10 +3,12 @@
 # 24/03/2026
 # ---------- PINN — Équation d'onde acoustique 2D ----------
 
+from pathlib import Path
+
+import numpy as np
 import torch
 import torch.nn as nn
-import numpy as np
-from tqdm import tqdm 
+from tqdm import tqdm
 # ── 1. Architecture ───────────────────────────────────────────────────────────
 
 class FCN(nn.Module):
@@ -113,15 +115,17 @@ def compute_loss(model: FCN,
 
 def load_dataset(path: str, n_points: int = 5000) -> tuple:
     """
-    Charge pinn_ground_truth.npy et tire n_points aléatoires.
+    Charge un .npy tabulaire et tire n_points aléatoires.
     Colonnes attendues : [sample_id, x, y, t, pression]
     """
     data = np.load(path)                     # (N, 5)
     idx  = np.random.choice(len(data), size=min(n_points, len(data)), replace=False)
     data = data[idx]
 
-    def t(col): return torch.tensor(data[:, col], dtype=torch.float32).unsqueeze(1)
-    return t(1), t(2), t(3), t(4)           # x, y, t, p
+    def t(col):
+        return torch.tensor(data[:, col], dtype=torch.float32).unsqueeze(1)
+
+    return t(1), t(2), t(3), t(4)           # x, y, t, p (sample_id ignoré)
 
 
 # ── 5. Points de collocation & bords ─────────────────────────────────────────
@@ -154,14 +158,27 @@ def sample_boundary(n: int, T: float) -> tuple:
 
 if __name__ == "__main__":
     c       = 343.0
-    T_final = 0.01
+    T_final = 0.006   # cohérent avec Simulation/simu.py
+
     device  = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(f"Device : {device}")
 
+    # Chemins (dataset simulé + dossier de sauvegarde)
+    repo_root   = Path(__file__).resolve().parent.parent
+    dataset_np  = repo_root / "pressure_dataset.npy"
+    weights_dir = Path(__file__).resolve().parent / "Poids_modèle"
+    weights_dir.mkdir(exist_ok=True)
+    weights_out = weights_dir / "pinn_wave_model.pt"
+    weights_out_flat = Path(__file__).resolve().parent / "pinn_wave_model.pt"  # pour compatibilité avec testpinn.py
+
+    if not dataset_np.exists():
+        raise FileNotFoundError(f"Dataset introuvable : {dataset_np}. Lancez Simulation/simu.py pour le générer.")
+
+    # Modèle
     model = FCN(hidden_dim=128, n_layers=5).to(device)
 
     # Données
-    x_d, y_d, t_d, p_d = load_dataset("simu/pinn_ground_truth_fixed_obstacle.npy", n_points=8000)
+    x_d, y_d, t_d, p_d = load_dataset(str(dataset_np), n_points=8000)
     x_d, y_d, t_d, p_d = x_d.to(device), y_d.to(device), t_d.to(device), p_d.to(device)
 
     # Points de collocation et bords (rééchantillonnés à chaque époque possible)
@@ -210,5 +227,6 @@ if __name__ == "__main__":
     print("  L-BFGS terminé.")
 
     # ── Sauvegarde ────────────────────────────────────────────────────────────
-    torch.save(model.state_dict(), "pinn_wave_model.pt")
-    print("\nModèle sauvegardé : pinn_wave_model.pt")
+    torch.save(model.state_dict(), weights_out)
+    torch.save(model.state_dict(), weights_out_flat)
+    print(f"\nModèle sauvegardé : {weights_out}")
